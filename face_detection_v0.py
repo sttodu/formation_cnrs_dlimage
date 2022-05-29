@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[164]:
+# In[22]:
 
 
 # Data sets + training parameters
@@ -16,40 +16,48 @@ import torchvision.transforms as transforms
 from torch.utils.data.sampler import SubsetRandomSampler
 from torchsampler import ImbalancedDatasetSampler
 
+# dossier des données d'apprentissage
 train_dir = './train_images'
+# dossier des données de test
 test_dir = './test_images'
 
+# fonction pour la normalisation des données
 transform = transforms.Compose(
     [transforms.Grayscale(),
      transforms.ToTensor(),
-     transforms.Normalize(mean=(0,),std=(1,))])
+     transforms.Normalize(mean=(0.5,),std=(0.5,))])  
 
+# création de deux jeux de données (train + test)    
 train_data = torchvision.datasets.ImageFolder(train_dir, transform=transform)
 test_data = torchvision.datasets.ImageFolder(test_dir, transform=transform)
 
-valid_size = 0.2
-batch_size = 32
-CLASSIFIER_SIZE = 36
+valid_size = 0.2  # proportion de "train_data" utilisée pour la validation
+batch_size = 32   # taille de "batch"
 
+# mélanger aléatoirement train_data et séparer en un jeu d'apprentissage et de validation
 num_train = len(train_data)
 indices_train = list(range(num_train))
 np.random.shuffle(indices_train)
 split_tv = int(np.floor(valid_size * num_train))
 train_new_idx, valid_idx = indices_train[split_tv:],indices_train[:split_tv]
 
+
+# In[23]:
+
+
+# Pour charger les données en GPU automatiquement si disponible (sinon en CPU)
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+kwargs = {'num_workers': 1, 'pin_memory': True} if device=='cuda' else {}
 
-
-
-# In[166]:
-
-
-# Data loaders
-
+# pour échantilloner le jeu de données d'apprentissage (+ validation) de manière uniforme lors de l'apprentissage
 train_sampler = SubsetRandomSampler(train_new_idx)
 valid_sampler = SubsetRandomSampler(valid_idx)
+# alternative : échantillonnage proportionnel selon de nombre d'exemples pour chaque classe
+#train_sampler = ImbalancedDatasetSampler(train_data, train_new_idx)
+#valid_sampler = ImbalancedDatasetSampler(train_data, valid_idx)
 
-kwargs = {'num_workers': 1, 'pin_memory': True} if device=='cuda' else {}
+# Data loaders (train, validation, test)
+kwargs = {'pin_memory': True} if device=='cuda' else {}
 train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, sampler=train_sampler, num_workers=1, **kwargs)
 valid_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, sampler=valid_sampler, num_workers=1, **kwargs)
 test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True, num_workers=1, **kwargs)
@@ -57,7 +65,7 @@ classes = ('noface','face')
 
 
 
-# In[167]:
+# In[26]:
 
 
 class MLP(nn.Module):
@@ -75,7 +83,7 @@ class MLP(nn.Module):
         return x
 
 
-# In[168]:
+# In[27]:
 
 
 class CNN(nn.Module):
@@ -98,7 +106,7 @@ class CNN(nn.Module):
         return x
 
 
-# In[169]:
+# In[28]:
 
 
 # NN creation 
@@ -111,7 +119,7 @@ optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
 
 
-# In[170]:
+# In[30]:
 
 
 # Training of classifier
@@ -142,7 +150,7 @@ for epoch in range(3):  # loop over the dataset multiple times
 print('Finished Training')
 
 
-# In[138]:
+# In[32]:
 
 
 # Test of classifier
@@ -170,7 +178,22 @@ print("Correct non-faces: %d/%d  %d %%" % (correct_nonface, total_nonface, 100*c
 print("Correct     faces: %d/%d  %d %%" % (correct_face, total_face, 100*correct_face / total_face))
 
 
-# In[88]:
+# In[34]:
+
+
+# Sauvegarder et charger un modèle
+# uniquement les poids/paramètres :
+torch.save(net.state_dict(), 'model_weights.pth')
+net.load_state_dict(torch.load('model_weights.pth'))
+
+# Les paramètres avec l'architecture :
+torch.save(net, 'model.pth')
+net = torch.load('model.pth')
+
+
+
+
+# In[41]:
 
 
 import cv2
@@ -179,6 +202,18 @@ import matplotlib.pyplot as plt
 testimg = cv2.imread("./img_833.jpg")
 gray = cv2.cvtColor(testimg, cv2.COLOR_BGR2GRAY).astype(float)
 gray = gray/128.0 - 1.0
-plt.imshow(gray)
+plt.imshow(gray, cmap="gray")
 plt.show()
+
+
+# In[38]:
+
+
+
+
+
+# In[40]:
+
+
+
 
