@@ -38,7 +38,7 @@ class SegmentationDataset(Dataset):
       mask = self.mtransforms(mask)
 
     # SUIM: extract binary mask from multi-label mask (BGR)=(011) (Fish class)
-    mask = (((torch.logical_not(mask[:][0])) & mask[:][1] & mask[:][2]))/255
+    mask = ((torch.logical_not(mask[:][0])) & (mask[:][1]).to(bool) & (mask[:][2]).to(bool)).to(torch.float32)
     mask.unsqueeze_(0)
 
     # return a tuple of the image and its mask
