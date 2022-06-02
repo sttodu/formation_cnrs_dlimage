@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import torch 
@@ -26,13 +26,12 @@ mfiles = glob.glob(paths2)
 tfiles.sort()
 mfiles.sort()
 
-transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((480,640))])
-
+transform = transforms.Compose([transforms.ToPILImage(), transforms.Resize((480,640)), transforms.ToTensor()])
 
 sds = SegmentationDataset(tfiles, mfiles, transform) 
 
 
-# In[7]:
+# In[ ]:
 
 
 class conv_block(nn.Module):
@@ -54,7 +53,7 @@ class conv_block(nn.Module):
         return x
 
 
-# In[8]:
+# In[ ]:
 
 
 class encoder_block(nn.Module):
@@ -69,7 +68,7 @@ class encoder_block(nn.Module):
         return x, p
 
 
-# In[9]:
+# In[ ]:
 
 
 class decoder_block(nn.Module):
@@ -85,29 +84,30 @@ class decoder_block(nn.Module):
         return x
 
 
-# In[10]:
+# In[ ]:
 
 
 class unet(nn.Module):
     def __init__(self):
         super().__init__()
         """ Encoder """
-        self.e1 = encoder_block(3, 64)
-        self.e2 = encoder_block(64, 128)
-        self.e3 = encoder_block(128, 256)
-        self.e4 = encoder_block(256, 512)         
+        self.e1 = encoder_block(3, 16)
+        self.e2 = encoder_block(16, 32)
+        self.e3 = encoder_block(32, 64)
+        self.e4 = encoder_block(64, 128)         
         
         """ Bottleneck """
-        self.b = conv_block(512, 1024)         
+        self.b = conv_block(128, 256)         
         
         """ Decoder """
-        self.d1 = decoder_block(1024, 512)
-        self.d2 = decoder_block(512, 256)
-        self.d3 = decoder_block(256, 128)
-        self.d4 = decoder_block(128, 64)         
+        self.d1 = decoder_block(256, 128)
+        self.d2 = decoder_block(128, 64)
+        self.d3 = decoder_block(64, 32)
+        self.d4 = decoder_block(32, 16)         
         
         """ Classifier """
-        self.outputs = nn.Conv2d(64, 1, kernel_size=1, padding=0)     
+        self.outputs = nn.Conv2d(16, 1, kernel_size=1, padding=0)  
+        self.sig = nn.Sigmoid()
         
     def forward(self, inputs):
         """ Encoder """
@@ -126,26 +126,27 @@ class unet(nn.Module):
         d4 = self.d4(d3, s1)         
         
         """ Classifier """
-        outputs = self.outputs(d4)        
+        outputs = self.sig(self.outputs(d4))
         return outputs
     
 
 
-# In[11]:
+# In[ ]:
 
 
 net = unet()
 
-criterion = BinaryDiceLoss()
+#criterion = BinaryDiceLoss()
+criterion = nn.BCELoss()
 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
 
 
-# In[2]:
+# In[ ]:
 
 
 valid_size = 0.2  # proportion de "train_data" utilisée pour la validation
-batch_size = 32   # taille de "batch"
+batch_size = 8   # taille de "batch"
 
 # mélanger aléatoirement train_data et séparer en un jeu d'apprentissage et de validation
 num_train = len(tfiles)
@@ -155,12 +156,13 @@ split_tv = int(np.floor(valid_size * num_train))
 train_new_idx, valid_idx = indices_train[split_tv:],indices_train[:split_tv]
 
 
-# In[3]:
+# In[ ]:
 
 
 # Pour charger les données en GPU automatiquement si disponible (sinon en CPU)
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 kwargs = {'num_workers': 1, 'pin_memory': True} if device=='cuda' else {}
+print("Device: " + device)
 
 # pour échantilloner le jeu de données d'apprentissage (+ validation) de manière uniforme lors de l'apprentissage
 train_sampler = SubsetRandomSampler(train_new_idx)
@@ -170,7 +172,7 @@ train_loader = torch.utils.data.DataLoader(sds, batch_size=batch_size, sampler=t
 valid_loader = torch.utils.data.DataLoader(sds, batch_size=batch_size, sampler=valid_sampler, **kwargs)
 
 
-# In[5]:
+# In[17]:
 
 
 import cv2
@@ -185,7 +187,7 @@ plt.show()
 
 
 
-# In[6]:
+# In[18]:
 
 
 i = images[1][0].squeeze()
@@ -216,24 +218,45 @@ for epoch in range(5):  # loop over the dataset multiple times
 
         # print statistics
         running_loss += loss.item()
-        if i % 200 == 199:    # print every 2000 mini-batches
+        if i % 10 == 9:    # print every 20 mini-batches
             print('[%d, %5d] loss: %.3f' %
-                  (epoch + 1, i + 1, running_loss / 200))
+                  (epoch + 1, i + 1, running_loss / 10))
             running_loss = 0.0
 
 print('Finished Training')
 
 
+# In[ ]:
+
+
+torch.save(net, 'seg_model.pth')
+
+
+# In[ ]:
+
+
+net = torch.load('seg_model.pth')
+
+
 # In[23]:
 
 
+import matplotlib.pyplot as plt
+
+it = iter(train_loader)
+images = next(it)
+outputs = net(images[0])
+i = torch.permute(images[0][0],(1,2,0))
+plt.imshow(i)
+plt.show()
 
 
 
-# In[24]:
+# In[7]:
 
 
-
+plt.imshow(outputs[0].detach().numpy().squeeze())
+plt.show()
 
 
 # In[6]:

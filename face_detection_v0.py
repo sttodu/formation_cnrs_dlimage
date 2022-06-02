@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[22]:
+# In[1]:
 
 
 # Data sets + training parameters
@@ -42,7 +42,7 @@ split_tv = int(np.floor(valid_size * num_train))
 train_new_idx, valid_idx = indices_train[split_tv:],indices_train[:split_tv]
 
 
-# In[23]:
+# In[2]:
 
 
 # Pour charger les données en GPU automatiquement si disponible (sinon en CPU)
@@ -65,7 +65,7 @@ classes = ('noface','face')
 
 
 
-# In[26]:
+# In[3]:
 
 
 class MLP(nn.Module):
@@ -83,7 +83,7 @@ class MLP(nn.Module):
         return x
 
 
-# In[27]:
+# In[4]:
 
 
 class CNN(nn.Module):
@@ -106,7 +106,7 @@ class CNN(nn.Module):
         return x
 
 
-# In[28]:
+# In[5]:
 
 
 # NN creation 
@@ -124,7 +124,7 @@ optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
 # Training of classifier
 
-for epoch in range(3):  # loop over the dataset multiple times
+for epoch in range(5):  # loop over the dataset multiple times
 
     running_loss = 0.0
     for i, data in enumerate(train_loader, 0):
@@ -204,6 +204,12 @@ gray = cv2.cvtColor(testimg, cv2.COLOR_BGR2GRAY).astype(float)
 gray = gray/128.0 - 1.0
 plt.imshow(gray, cmap="gray")
 plt.show()
+
+
+# In[45]:
+
+
+testimg.transpose(3, 1, 2)
 
 
 # In[38]:
